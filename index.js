@@ -9,21 +9,22 @@ import { authRouter } from "./controllers/authController.js";
 import { auth } from "./middleware/authMiddleware.js";
 import cors from "cors";
 import User from "./models/user.js";
-import { v2 as cloudinary } from "cloudinary"; // Single import of cloudinary
+import pkg from "cloudinary"; // Import cloudinary as a package
+const { v2: cloudinary } = pkg; // Destructure v2 from the package
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import Stripe from "stripe";
 import { webhookRouter } from "./webhooks/webhookHandler.js";
 
 // Load environment variables from .env file
-config(); // Load environment variables
+config(); 
 
 // Initialize the app
 const app = express();
 
 // Middleware setup
 app.use(cors());
-app.use(express.json()); // For parsing application/json requests
+app.use(express.json());
 
 // MongoDB URI from environment variables
 const mongoURI = process.env.MONGO_URI;
