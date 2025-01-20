@@ -14,16 +14,16 @@ import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import { webhookRouter } from "./webhooks/webhookHandler.js";
 
-
+// Load environment variables
 config();
 
+// Initialize the app
 const app = express();
 
-
+// Middleware setup
 app.use(cors({
-  origin: '*', 
+  origin: '*', // Allow requests from any origin
 }));
-
 app.use(express.json());
 
 // MongoDB URI
@@ -108,7 +108,5 @@ app.post('/test-user', async (req, res) => {
   }
 });
 
-// Start server
-app.listen(3000, () => {
-  console.log('Server is running on port 3000');
-});
+// Export the handler for Vercel
+export default app;
