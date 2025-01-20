@@ -14,14 +14,16 @@ import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import { webhookRouter } from "./webhooks/webhookHandler.js";
 
-// Load environment variables
+
 config();
 
-// Initialize the app
 const app = express();
 
-// Middleware setup
-app.use(cors());
+
+app.use(cors({
+  origin: '*', 
+}));
+
 app.use(express.json());
 
 // MongoDB URI
