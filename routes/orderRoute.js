@@ -1,153 +1,117 @@
-// import express from "express";
-// import Order from "../models/orderModel.js";
-// import crypto from "crypto";
-// import { auth } from "../middleware/authMiddleware.js";
-// import { config } from "dotenv";
-
-// config();
-
-// const router = express.Router();
-
-// //fetching all the orders
-// router.get('/', async (req, res) => {
-//     const orders = await Order.find();
-
-//     res.json(orders);
-// })
-
-// //fetching a single order by id
-// router.get('/:id', async (req, res) => {
-//     const order = await Order.findById(req.params.id);
-
-//     res.json(order);
-// })
-
-// //updating an existing order
-// router.put('/:id', auth, async (req, res) => {
-//     const updateOrder = await Order.findByIdAndUpdate(req.params.id, req.body, { new: true});
-    
-//     res.json(updateOrder);
-// })
-
-// //delete an order
-// router.delete('/:id', auth, async (req, res) => {
-//     const deletedOrder = await Order.findByIdAndDelete(req.params.id);
-
-//     res.json(deletedOrder);
-// })
-
-// //creating a new order
-// router.post('/', async (req, res) => {
-//     const orderData = req.body;
-
-//     const orderId = crypto.createHash('sha256').update(JSON.stringify(orderData)).digest('hex');
-
-//     try {
-//         const existingOrder = await Order.findOne({ orderId });
-
-//         if (existingOrder) {
-//             return res.status(409).json({ message: 'Order already exists.' });
-//         }
-
-//         const order = new Order({ orderId, ...orderData });
-//         try {
-//             await order.save();
-//         } catch (error) {
-//             console.error('Error saving order: ', error.message);
-//             return res.status(500).send({ message: 'Error saving order: ' + error.message});
-//         }
-
-//         return res.status(201).json(order);
-
-//     } catch (error) {
-//         console.error('Error finding order: ', error.message);
-//         return res.status(500).send({ message: 'Error finding order: ' + error.message});
-//     }
-// })
-
-// export default router;
 import express from "express";
 import Order from "../models/orderModel.js";
-import crypto from "crypto";
-import { auth } from "../middleware/authMiddleware.js"; // Make sure you have authentication middleware
+import { v4 as uuidv4 } from "uuid";
+import { auth } from "../middleware/authMiddleware.js";
 import { config } from "dotenv";
+import multer from "multer";
+import mongoose from "mongoose";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
-config(); // Loads environment variables from .env
+config(); // Load environment variables
 
 const router = express.Router();
+const upload = multer({ dest: "uploads/" }); // File upload configuration
 
-// Fetching all the orders
+// Emulate __dirname in ES module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Ensure the uploads directory exists
+const uploadDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Fetching all orders
 router.get("/", async (req, res) => {
   try {
-    const orders = await Order.find(); // Fetch all orders
+    const orders = await Order.find();
     res.json(orders);
   } catch (error) {
-    console.error("Error fetching orders: ", error.message);
+    console.error("Error fetching orders:", error.message);
     res.status(500).send({ message: "Error fetching orders: " + error.message });
   }
 });
 
 // Fetching a single order by ID
 router.get("/:id", async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: "Invalid order ID format" });
+  }
   try {
-    const order = await Order.findById(req.params.id); // Find the order by ID
-    if (!order) {
-      return res.status(404).json({ message: "Order not found" }); // Handle if no order is found
-    }
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: "Order not found" });
     res.json(order);
   } catch (error) {
-    console.error("Error fetching order: ", error.message);
+    console.error("Error fetching order:", error.message);
     res.status(500).send({ message: "Error fetching order: " + error.message });
   }
 });
 
-// Updating an existing order (only accessible by authorized users)
+// Updating an order
 router.put("/:id", auth, async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: "Invalid order ID format" });
+  }
   try {
     const updatedOrder = await Order.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updatedOrder) {
-      return res.status(404).json({ message: "Order not found" }); // Handle if no order is found
-    }
+    if (!updatedOrder) return res.status(404).json({ message: "Order not found" });
     res.json(updatedOrder);
   } catch (error) {
-    console.error("Error updating order: ", error.message);
+    console.error("Error updating order:", error.message);
     res.status(500).send({ message: "Error updating order: " + error.message });
   }
 });
 
-// Deleting an order (only accessible by authorized users)
+// Deleting an order
 router.delete("/:id", auth, async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: "Invalid order ID format" });
+  }
   try {
     const deletedOrder = await Order.findByIdAndDelete(req.params.id);
-    if (!deletedOrder) {
-      return res.status(404).json({ message: "Order not found" }); // Handle if no order is found
-    }
+    if (!deletedOrder) return res.status(404).json({ message: "Order not found" });
     res.json(deletedOrder);
   } catch (error) {
-    console.error("Error deleting order: ", error.message);
+    console.error("Error deleting order:", error.message);
     res.status(500).send({ message: "Error deleting order: " + error.message });
   }
 });
 
-// Creating a new order
-router.post("/", async (req, res) => {
-  const orderData = req.body;
-
-  // Generate a unique order ID using a hash of the order data (can be replaced by another method if needed)
-  const orderId = crypto.createHash("sha256").update(JSON.stringify(orderData)).digest("hex");
-
+// Creating an order
+router.post("/", upload.single("transactionImage"), async (req, res) => {
   try {
-    const existingOrder = await Order.findOne({ orderId }); // Check if an order with this ID already exists
-    if (existingOrder) {
-      return res.status(409).json({ message: "Order already exists." });
+    const orderData = JSON.parse(req.body.orderData);
+
+    // Validate required fields
+    if (!orderData.customerName || !orderData.customerEmail || !orderData.customerPhone) {
+      return res.status(400).json({
+        message: "customerName, customerEmail, and customerPhone are required.",
+      });
     }
 
-    const order = new Order({ orderId, ...orderData }); // Create a new order instance
-    await order.save(); // Save the new order in the database
+    // Generate unique orderId using UUID
+    const orderId = uuidv4();
 
-    res.status(201).json(order); // Respond with the created order
+    // Check if the orderId already exists in the database (just for safety)
+    const existingOrder = await Order.findOne({ orderId });
+    if (existingOrder) {
+      return res.status(409).json({ message: "Order already exists with this ID." });
+    }
+
+    // Create and save the order with the new orderId
+    const order = new Order({
+      ...orderData,
+      orderId,
+      transactionImagePath: req.file ? req.file.path : null,
+    });
+
+    await order.save();
+    res.status(201).json(order);
   } catch (error) {
-    console.error("Error creating order: ", error.message);
+    console.error("Error creating order:", error.message);
     res.status(500).send({ message: "Error creating order: " + error.message });
   }
 });
