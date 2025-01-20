@@ -80,40 +80,41 @@ router.delete("/:id", auth, async (req, res) => {
   }
 });
 
-// Creating an order
 router.post("/", upload.single("transactionImage"), async (req, res) => {
-  try {
-    const orderData = JSON.parse(req.body.orderData);
-
-    // Validate required fields
-    if (!orderData.customerName || !orderData.customerEmail || !orderData.customerPhone) {
-      return res.status(400).json({
-        message: "customerName, customerEmail, and customerPhone are required.",
+    try {
+      const orderData = JSON.parse(req.body.orderData); // Parse the order data
+      console.log("Order Data:", orderData);  // Add this for debugging purposes
+  
+      // Validate required fields
+      if (!orderData.customerName || !orderData.customerEmail || !orderData.customerPhone) {
+        return res.status(400).json({
+          message: "customerName, customerEmail, and customerPhone are required.",
+        });
+      }
+  
+      // Generate unique orderId using UUID
+      const orderId = uuidv4();
+      console.log("Generated OrderId:", orderId);  // Add this for debugging purposes
+  
+      // Check if the orderId already exists in the database (just for safety)
+      const existingOrder = await Order.findOne({ orderId });
+      if (existingOrder) {
+        return res.status(409).json({ message: "Order already exists with this ID." });
+      }
+  
+      // Create and save the order with the new orderId
+      const order = new Order({
+        ...orderData,
+        orderId,
+        transactionImagePath: req.file ? req.file.path : null,
       });
+  
+      await order.save();
+      res.status(201).json(order);
+    } catch (error) {
+      console.error("Error creating order:", error.message);
+      res.status(500).send({ message: "Error creating order: " + error.message });
     }
-
-    // Generate unique orderId using UUID
-    const orderId = uuidv4();
-
-    // Check if the orderId already exists in the database (just for safety)
-    const existingOrder = await Order.findOne({ orderId });
-    if (existingOrder) {
-      return res.status(409).json({ message: "Order already exists with this ID." });
-    }
-
-    // Create and save the order with the new orderId
-    const order = new Order({
-      ...orderData,
-      orderId,
-      transactionImagePath: req.file ? req.file.path : null,
-    });
-
-    await order.save();
-    res.status(201).json(order);
-  } catch (error) {
-    console.error("Error creating order:", error.message);
-    res.status(500).send({ message: "Error creating order: " + error.message });
-  }
-});
-
+  });
+  
 export default router;
