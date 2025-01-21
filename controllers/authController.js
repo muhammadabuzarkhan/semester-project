@@ -1,21 +1,19 @@
-import express from "express";
+// controllers/authController.js
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
 
-const router = express.Router();
-
-//router for user registration
-router.post('/register', async (req,res) => {
+// Register user
+export const registerUser = async (req, res) => {
     try {
-
         const { email, password } = req.body;
-        const userExists = await User.findOne({email});
+        const userExists = await User.findOne({ email });
+
         if (userExists) {
-            return res.status(400).json({msg:'User already exists'});
+            return res.status(400).json({ msg: 'User already exists' });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 12)
+        const hashedPassword = await bcrypt.hash(password, 12);
 
         const newUser = new User({
             email,
@@ -24,25 +22,24 @@ router.post('/register', async (req,res) => {
 
         const savedUser = await newUser.save();
 
-        const token = jwt.sign({id: savedUser._id}, process.env.JWT_SECRET, { expiresIn: '1h'});
+        const token = jwt.sign({ id: savedUser._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-        res.status(201).json({token,msg:'User registered succesfully'});
+        res.status(201).json({ token, msg: 'User registered successfully' });
 
     } catch (error) {
         console.error(error);
         res.status(500).send('Server error');
     }
-})
+};
 
-
-//route for user login
-router.post('/login', async (req,res) => {
+// Login user
+export const loginUser = async (req, res) => {
     try {
-
         const { email, password } = req.body;
-        const user = await User.findOne({email});
+        const user = await User.findOne({ email });
+
         if (!user) {
-            return res.status(400).json({msg:'Invalid credentials'});
+            return res.status(400).json({ msg: 'Invalid credentials' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
@@ -60,18 +57,33 @@ router.post('/login', async (req,res) => {
                     if (error) throw error;
                     res.json({
                         token,
-                        user: {id:user._id, email: user.email}
+                        user: { id: user._id, email: user.email }
                     });
                 }
             );
         } else {
-            return res.status(400).json({msg:'Invalid credentials'});
+            return res.status(400).json({ msg: 'Invalid credentials' });
         }
 
     } catch (error) {
         console.error(error);
         res.status(500).send('Server error');
     }
-});
+};
 
-export { router as authRouter };
+// Get user profile (requires authentication)
+export const getUserProfile = async (req, res) => {
+    try {
+        const userId = req.user.id; // User ID is available through JWT middleware (auth middleware)
+        const user = await User.findById(userId).select('-password'); // Exclude password from the response
+
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        res.json(user);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Server error');
+    }
+};
